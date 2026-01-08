@@ -348,7 +348,7 @@ function TransactionContent() {
                             <p className="font-semibold">
                               ${milestone.amount.toLocaleString()} {currentDeal.settlementAsset}
                             </p>
-                            {milestone.verificationStatus === "Verified" && (
+                            {milestone.verification?.status === "Verified" && (
                               <p className="text-xs text-green-600 mt-1">Auto-released via verified proof</p>
                             )}
                             <Badge

@@ -35,7 +35,7 @@ function DealDetailsContent() {
   const params = useParams();
   const dealId = params.id as string;
   const { selectedWallet } = useAuthStore();
-  const { currentDeal, fetchDeal, releaseMilestone, raisDispute, verifyMilestone } = useDealsStore();
+  const { currentDeal, fetchDeal, releaseMilestone, raisDispute, verifyMilestone, error, clearError } = useDealsStore();
   const [releasing, setReleasing] = useState<number | null>(null);
   const [verifying, setVerifying] = useState<number | null>(null);
 
@@ -44,6 +44,13 @@ function DealDetailsContent() {
       fetchDeal(dealId);
     }
   }, [dealId, fetchDeal]);
+
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => clearError(), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [error, clearError]);
 
   if (!currentDeal || !selectedWallet) {
     return (
@@ -58,7 +65,9 @@ function DealDetailsContent() {
   const facilitator = currentDeal.participants.facilitator;
 
   const isBuyer = selectedWallet.address === buyer?.xrplAddress;
+  const isSupplier = selectedWallet.address === supplier?.xrplAddress;
   const isFacilitator = facilitator && selectedWallet.address === facilitator.xrplAddress;
+  const userRole = isBuyer ? "buyer" : isSupplier ? "supplier" : isFacilitator ? "facilitator" : null;
 
   const releasedPercentage = currentDeal.milestones.reduce(
     (acc, m) => acc + (m.status === "Released" ? m.percentage : 0),
@@ -100,7 +109,10 @@ function DealDetailsContent() {
 
   const handleVerify = async (index: number) => {
     setVerifying(index);
-    await verifyMilestone(currentDeal.id, index, selectedWallet.address);
+    const success = await verifyMilestone(currentDeal.id, index, selectedWallet.address);
+    if (success) {
+      await fetchDeal(dealId);
+    }
     setVerifying(null);
   };
 
@@ -135,6 +147,12 @@ function DealDetailsContent() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#eaeaea] via-white to-[#eaeaea]">
       <div className="container mx-auto px-4 py-8">
+        {error && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700 flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5" />
+            {error}
+          </div>
+        )}
         <div className="mb-8">
           <Link href="/dashboard">
             <Button variant="ghost" className="mb-4">
@@ -147,12 +165,19 @@ function DealDetailsContent() {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{currentDeal.name}</h1>
               <p className="text-muted-foreground">Deal ID: {currentDeal.dealReference}</p>
             </div>
-            <Badge
-              variant={currentDeal.dispute ? "destructive" : currentDeal.status === "completed" ? "success" : "default"}
-              className="text-lg px-4 py-2"
-            >
-              {currentDeal.dispute ? "Disputed" : currentDeal.status === "completed" ? "Completed" : "Active"}
-            </Badge>
+            <div className="flex items-center gap-2">
+              {userRole && (
+                <Badge variant="outline" className="text-sm px-3 py-1">
+                  Viewing as {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+                </Badge>
+              )}
+              <Badge
+                variant={currentDeal.dispute ? "destructive" : currentDeal.status === "completed" ? "success" : "default"}
+                className="text-lg px-4 py-2"
+              >
+                {currentDeal.dispute ? "Disputed" : currentDeal.status === "completed" ? "Completed" : "Active"}
+              </Badge>
+            </div>
           </div>
         </div>
 
@@ -231,7 +256,8 @@ function DealDetailsContent() {
                 const isReleased = milestone.status === "Released";
                 const isDisputed = milestone.status === "Disputed";
                 const isCurrentMilestone = index === nextMilestoneIndex && canReleaseNext;
-                const isVerified = milestone.verificationStatus === "Verified";
+                const verificationStatus = milestone.verification?.status || "Pending";
+                const isVerified = verificationStatus === "Verified";
 
                 return (
                   <div key={milestone.id} className="relative">
@@ -274,17 +300,17 @@ function DealDetailsContent() {
                                     </p>
                                   </div>
                                 </div>
-                                {milestone.verifierDid && (
+                                {milestone.verification?.verifier && (
                                   <div className="mt-3 p-3 bg-[#eaeaea] rounded-lg border border-black">
                                     <div className="flex items-center gap-2 mb-1">
                                       <FileCheck className="h-4 w-4 text-[#fd6c0a]" />
                                       <span className="text-sm font-medium">Verification Status</span>
                                       <Badge variant={isVerified ? "success" : "pending"} className="ml-auto">
-                                        {milestone.verificationStatus}
+                                        {verificationStatus}
                                       </Badge>
                                     </div>
                                     <p className="text-xs text-muted-foreground">
-                                      Verifier: {milestone.verifierDid.slice(0, 50)}...
+                                      Verifier: {milestone.verification.verifier.slice(0, 50)}...
                                     </p>
                                   </div>
                                 )}
@@ -366,8 +392,8 @@ function DealDetailsContent() {
               className="flex-1"
               size="lg"
             >
-              <CheckCircle2 className="mr-2 h-4 w-4" />
-              Verify & Auto-Release Next Milestone
+              <DollarSign className="mr-2 h-4 w-4" />
+              Release Next Milestone
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
             <Button onClick={handleDispute} variant="destructive" disabled={currentDeal.dispute} size="lg">

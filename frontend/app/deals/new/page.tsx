@@ -46,17 +46,35 @@ function NewDealContent() {
     { name: "Initial Payment", percentage: 30 },
     { name: "Delivery", percentage: 70 },
   ]);
-  const [availableWallets, setAvailableWallets] = useState<WalletOption[]>([]);
+  const [suppliers, setSuppliers] = useState<WalletOption[]>([]);
+  const [facilitators, setFacilitators] = useState<WalletOption[]>([]);
   const [creating, setCreating] = useState(false);
   const [step, setStep] = useState<"create" | "fund">("create");
   const [createdDealId, setCreatedDealId] = useState<string | null>(null);
 
   useEffect(() => {
-    const loadWallets = async () => {
-      const response = await api.wallets.list();
-      if (response.success && response.data) {
-        setAvailableWallets(
-          response.data.map((w) => ({
+    const loadParticipants = async () => {
+      const [suppliersRes, facilitatorsRes] = await Promise.all([
+        api.wallets.listSuppliers(),
+        api.wallets.listFacilitators(),
+      ]);
+
+      if (suppliersRes.success && suppliersRes.data) {
+        setSuppliers(
+          suppliersRes.data.map((w) => ({
+            id: w.id,
+            address: w.xrplAddress,
+            name: w.name,
+            role: w.role,
+            did: w.did,
+            verified: w.verified,
+          }))
+        );
+      }
+
+      if (facilitatorsRes.success && facilitatorsRes.data) {
+        setFacilitators(
+          facilitatorsRes.data.map((w) => ({
             id: w.id,
             address: w.xrplAddress,
             name: w.name,
@@ -67,11 +85,8 @@ function NewDealContent() {
         );
       }
     };
-    loadWallets();
+    loadParticipants();
   }, []);
-
-  const suppliers = availableWallets.filter((w) => w.role === "supplier");
-  const facilitators = availableWallets.filter((w) => w.role === "facilitator");
 
   const totalPercentage = milestones.reduce((sum, m) => sum + m.percentage, 0);
   const isValidPercentage = totalPercentage === 100;

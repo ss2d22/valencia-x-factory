@@ -322,7 +322,8 @@ export async function verifyMilestone(
 
   await dealStorage.updateMilestone(dealId, milestoneIndex, {
     verification: {
-      ...milestone.verification!,
+      verifier: verifierAddress,
+      credential: milestone.verification?.credential || 'Certified Inspector',
       status: 'Verified',
       verifiedAt: new Date().toISOString(),
     },

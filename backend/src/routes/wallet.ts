@@ -60,6 +60,40 @@ router.post('/', authMiddleware, async (req: AuthenticatedRequest, res: Response
   }
 });
 
+router.get('/suppliers', authMiddleware, async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const suppliers = await participantStorage.listByRole('supplier');
+
+    return res.json({
+      success: true,
+      data: suppliers,
+    } as ApiResponse<unknown>);
+  } catch (error) {
+    console.error('Error listing suppliers:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to list suppliers',
+    } as ApiResponse<null>);
+  }
+});
+
+router.get('/facilitators', authMiddleware, async (_req: AuthenticatedRequest, res: Response) => {
+  try {
+    const facilitators = await participantStorage.listByRole('facilitator');
+
+    return res.json({
+      success: true,
+      data: facilitators,
+    } as ApiResponse<unknown>);
+  } catch (error) {
+    console.error('Error listing facilitators:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to list facilitators',
+    } as ApiResponse<null>);
+  }
+});
+
 router.get('/:address', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { address } = req.params;

@@ -411,6 +411,14 @@ export const participantStorage = {
     });
     return wallets.map(dbWalletToParticipant);
   },
+
+  async listByRole(role: string): Promise<Participant[]> {
+    const wallets = await prisma.wallet.findMany({
+      where: { role },
+      orderBy: { createdAt: 'desc' },
+    });
+    return wallets.map(dbWalletToParticipant);
+  },
 };
 
 export const walletStorage = {

@@ -139,6 +139,30 @@ export const api = {
         method: "POST",
         body: JSON.stringify(options || {}),
       }),
+
+    listSuppliers: () =>
+      request<
+        Array<{
+          id: string;
+          role: string;
+          name: string;
+          xrplAddress: string;
+          did?: string;
+          verified: boolean;
+        }>
+      >("/api/wallets/suppliers"),
+
+    listFacilitators: () =>
+      request<
+        Array<{
+          id: string;
+          role: string;
+          name: string;
+          xrplAddress: string;
+          did?: string;
+          verified: boolean;
+        }>
+      >("/api/wallets/facilitators"),
   },
 
   deals: {
@@ -249,8 +273,12 @@ export interface Milestone {
   percentage: number;
   amount: number;
   status: string;
-  verifierDid?: string | null;
-  verificationStatus: string;
+  verification?: {
+    verifier: string;
+    credential: string;
+    status: "Pending" | "Verified";
+    verifiedAt?: string;
+  };
   verifiedAt?: string | null;
   releasedAt?: string | null;
   escrow?: {

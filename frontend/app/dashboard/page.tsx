@@ -350,7 +350,7 @@ function DealCard({ deal, walletAddress, isBuyer, onReleaseMilestone, onRaiseDis
                     <div>
                       <div className="flex items-center gap-2">
                         <p className="font-medium text-sm">{milestone.name}</p>
-                        {milestone.verificationStatus === "Verified" && (
+                        {milestone.verification?.status === "Verified" && (
                           <CheckCircle2 className="h-3 w-3 text-green-600" />
                         )}
                       </div>
