@@ -29,15 +29,22 @@ function OnboardingContent() {
   const [walletRole, setWalletRole] = useState<WalletRole>("buyer");
   const [creating, setCreating] = useState(false);
 
+  const [walletsLoaded, setWalletsLoaded] = useState(false);
+
   useEffect(() => {
-    fetchWallets();
+    fetchWallets().then(() => setWalletsLoaded(true));
   }, [fetchWallets]);
 
   useEffect(() => {
-    if (selectedWallet) {
-      router.push("/dashboard");
+    if (walletsLoaded && selectedWallet) {
+      const walletBelongsToUser = wallets.some(w => w.address === selectedWallet.address);
+      if (walletBelongsToUser) {
+        router.push("/dashboard");
+      } else {
+        selectWallet(null);
+      }
     }
-  }, [selectedWallet, router]);
+  }, [walletsLoaded, selectedWallet, wallets, router, selectWallet]);
 
   const handleSelectWallet = (wallet: typeof wallets[0]) => {
     selectWallet(wallet);

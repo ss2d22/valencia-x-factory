@@ -198,7 +198,7 @@ router.get('/:address/deals', authMiddleware, async (req: AuthenticatedRequest, 
 router.post('/:address/verify', authMiddleware, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { address } = req.params;
-    const { issuerAddress } = req.body;
+    const { issuerAddress, demo } = req.body;
     const userId = req.user!.id;
 
     const hasAccess = await checkWalletOwnership(userId, address);
@@ -209,20 +209,53 @@ router.post('/:address/verify', authMiddleware, async (req: AuthenticatedRequest
       } as ApiResponse<null>);
     }
 
+    const participant = await participantStorage.getByAddress(address);
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        error: 'Wallet not found',
+      } as ApiResponse<null>);
+    }
+
+    if (participant.verified) {
+      return res.json({
+        success: true,
+        data: participant,
+        message: 'Wallet already verified',
+      } as ApiResponse<unknown>);
+    }
+
+    if (demo) {
+      await participantStorage.updateByAddress(address, {
+        verified: true,
+        issuer: 'X-Factory Platform (Demo)',
+      });
+
+      const updatedParticipant = await participantStorage.getByAddress(address);
+
+      console.log(`[Wallet] Demo KYC verification completed for: ${address}`);
+
+      return res.json({
+        success: true,
+        data: updatedParticipant,
+        message: 'Demo KYC verification completed',
+      } as ApiResponse<unknown>);
+    }
+
     if (!issuerAddress) {
       return res.status(400).json({
         success: false,
-        error: 'Issuer address is required',
+        error: 'Issuer address is required for on-chain verification',
       } as ApiResponse<null>);
     }
 
     await verifyParticipant(issuerAddress, address);
 
-    const participant = await participantStorage.getByAddress(address);
+    const updatedParticipant = await participantStorage.getByAddress(address);
 
     return res.json({
       success: true,
-      data: participant,
+      data: updatedParticipant,
       message: 'Participant verified',
     } as ApiResponse<unknown>);
   } catch (error) {

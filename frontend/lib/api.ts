@@ -134,10 +134,10 @@ export const api = {
     deals: (address: string) =>
       request<Array<Deal>>(`/api/wallets/${address}/deals`),
 
-    verify: (address: string, issuerAddress: string) =>
+    verify: (address: string, options?: { issuerAddress?: string; demo?: boolean }) =>
       request<{ verified: boolean }>(`/api/wallets/${address}/verify`, {
         method: "POST",
-        body: JSON.stringify({ issuerAddress }),
+        body: JSON.stringify(options || {}),
       }),
   },
 

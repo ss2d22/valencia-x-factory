@@ -130,7 +130,19 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await api.auth.wallets();
           if (response.success && response.data) {
-            set({ wallets: response.data });
+            const wallets = response.data;
+            const { selectedWallet } = get();
+
+            if (selectedWallet) {
+              const freshWallet = wallets.find(w => w.address === selectedWallet.address);
+              if (freshWallet) {
+                set({ wallets, selectedWallet: freshWallet });
+              } else {
+                set({ wallets, selectedWallet: null });
+              }
+            } else {
+              set({ wallets });
+            }
           }
         } catch (err) {
         }
@@ -145,17 +157,12 @@ export const useAuthStore = create<AuthState>()(
         try {
           const response = await api.wallets.create(name, role);
           if (response.success && response.data) {
-            const newWallet: Wallet = {
-              address: response.data.address,
-              role,
-              name,
-              did: response.data.did,
-              verified: false,
-            };
-            await get().linkWallet(response.data.address);
+            const address = response.data.address;
+            await get().linkWallet(address);
             await get().fetchWallets();
+            const freshWallet = get().wallets.find(w => w.address === address);
             set({ isLoading: false });
-            return newWallet;
+            return freshWallet || null;
           } else {
             set({ error: response.error || "Failed to create wallet", isLoading: false });
             return null;
@@ -182,7 +189,7 @@ export const useAuthStore = create<AuthState>()(
       verifyWallet: async (address) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.wallets.verify(address, address);
+          const response = await api.wallets.verify(address, { demo: true });
           if (response.success) {
             await get().fetchWallets();
             const { selectedWallet, wallets } = get();
@@ -195,7 +202,7 @@ export const useAuthStore = create<AuthState>()(
             set({ isLoading: false });
             return true;
           }
-          set({ error: "Verification failed", isLoading: false });
+          set({ error: response.error || "Verification failed", isLoading: false });
           return false;
         } catch (err) {
           set({ error: "Network error", isLoading: false });

@@ -15,6 +15,7 @@ import { createDID } from './xrpl/did.js';
 import { createRLUSDTrustLine } from './xrpl/trustline.js';
 import {
   issueAndAcceptCredential,
+  verifyCredential,
   CredentialTypes,
 } from './xrpl/credentials.js';
 import type {
@@ -67,6 +68,12 @@ export async function verifyParticipant(
   issuerAddress: string,
   subjectAddress: string
 ): Promise<void> {
+  const existingParticipant = await participantStorage.getByAddress(subjectAddress);
+  if (existingParticipant?.verified) {
+    console.log(`[Deal] Participant already verified: ${subjectAddress}`);
+    return;
+  }
+
   const issuerWalletData = await walletStorage.get(issuerAddress);
   const subjectWalletData = await walletStorage.get(subjectAddress);
 
@@ -77,12 +84,26 @@ export async function verifyParticipant(
   const issuerWallet = getWalletFromSeed(issuerWalletData.seed);
   const subjectWallet = getWalletFromSeed(subjectWalletData.seed);
 
-  const result = await issueAndAcceptCredential(
-    issuerWallet,
-    subjectWallet,
-    CredentialTypes.BUSINESS_VERIFICATION,
-    { expirationDays: 365 }
+  const existingCredential = await verifyCredential(
+    issuerAddress,
+    subjectAddress,
+    CredentialTypes.BUSINESS_VERIFICATION
   );
+
+  let transactionHash = '';
+
+  if (existingCredential.valid) {
+    console.log(`[Deal] Credential already exists on XRPL for: ${subjectAddress}`);
+    transactionHash = existingCredential.credential?.transactionHash || '';
+  } else {
+    const result = await issueAndAcceptCredential(
+      issuerWallet,
+      subjectWallet,
+      CredentialTypes.BUSINESS_VERIFICATION,
+      { expirationDays: 365 }
+    );
+    transactionHash = result.transactionHash;
+  }
 
   await credentialStorage.create(subjectAddress, issuerAddress, CredentialTypes.BUSINESS_VERIFICATION);
   await credentialStorage.accept(subjectAddress, issuerAddress, CredentialTypes.BUSINESS_VERIFICATION);
@@ -93,11 +114,11 @@ export async function verifyParticipant(
   });
 
   const subjectParticipant = await participantStorage.getByAddress(subjectAddress);
-  if (subjectParticipant) {
+  if (subjectParticipant && transactionHash) {
     await transactionStorage.create({
       walletId: subjectParticipant.id,
       type: 'credential_issued',
-      hash: result.transactionHash,
+      hash: transactionHash,
       fromAddress: issuerAddress,
       toAddress: subjectAddress,
       status: 'success',
