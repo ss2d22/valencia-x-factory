@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: xfactory
+      POSTGRES_PASSWORD: xfactory_dev
+      POSTGRES_DB: xfactory
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xfactory -d xfactory"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://xfactory:xfactory_dev@db:5432/xfactory
+      PORT: 3001
+      NODE_ENV: production
+      JWT_SECRET: xfactory-jwt-secret-change-in-production
+      ENCRYPTION_KEY: xfactory-encryption-key-change-in-production
+      XRPL_WS_URL: wss://s.altnet.rippletest.net:51233
+      RLUSD_ISSUER: rQhWct2fv4Vc4KRjRgMrxa8xPN9Zx9iLKV
+    depends_on:
+      db:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && npm start"
+
+volumes:
+  postgres_data:

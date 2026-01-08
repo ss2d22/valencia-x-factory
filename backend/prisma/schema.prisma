@@ -1,0 +1,158 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  wallets      Wallet[]
+  sessions     Session[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Wallet {
+  id          String   @id @default(uuid())
+  address     String   @unique
+  publicKey   String
+  seed        String
+  role        String
+  name        String
+  did         String?
+  verified    Boolean  @default(false)
+  userId      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user              User?              @relation(fields: [userId], references: [id])
+  credentials       Credential[]
+  dealsAsBuyer      Deal[]             @relation("BuyerDeals")
+  dealsAsSupplier   Deal[]             @relation("SupplierDeals")
+  dealsAsFacilitator Deal[]            @relation("FacilitatorDeals")
+  transactionHistory TransactionHistory[]
+}
+
+model Credential {
+  id             String   @id @default(uuid())
+  walletId       String
+  issuerAddress  String
+  credentialType String
+  accepted       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+}
+
+model Deal {
+  id                 String   @id @default(uuid())
+  dealReference      String   @unique
+  name               String
+  description        String?
+  amount             Float
+  currency           String   @default("USD")
+  settlementAsset    String   @default("RLUSD")
+  status             String   @default("draft")
+  dispute            Boolean  @default(false)
+  disputeReason      String?
+  escrowBalance      Float    @default(0)
+  supplierBalance    Float    @default(0)
+  credentialProvider String   @default("X-Factory Platform")
+  complianceStatus   String   @default("Pending")
+  buyerId            String
+  supplierId         String
+  facilitatorId      String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  buyer       Wallet      @relation("BuyerDeals", fields: [buyerId], references: [id])
+  supplier    Wallet      @relation("SupplierDeals", fields: [supplierId], references: [id])
+  facilitator Wallet?     @relation("FacilitatorDeals", fields: [facilitatorId], references: [id])
+  milestones  Milestone[]
+  transactions TransactionHistory[]
+}
+
+model Milestone {
+  id                   String   @id @default(uuid())
+  dealId               String
+  name                 String
+  percentage           Float
+  amount               Float
+  status               String   @default("Pending")
+  index                Int
+  verifierDid          String?
+  verificationStatus   String   @default("Pending")
+  verifiedAt           DateTime?
+  releasedAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal   Deal    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  escrow Escrow?
+}
+
+model Escrow {
+  id              String   @id @default(uuid())
+  milestoneId     String   @unique
+  sequence        Int
+  ownerAddress    String
+  destinationAddress String
+  amount          String
+  condition       String
+  fulfillment     String
+  cancelAfter     Int
+  finishAfter     Int      @default(0)
+  status          String   @default("created")
+  transactionHash String?
+  finishHash      String?
+  cancelHash      String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  milestone Milestone @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+}
+
+model TransactionHistory {
+  id              String   @id @default(uuid())
+  dealId          String?
+  walletId        String?
+  type            String
+  hash            String?
+  amount          String?
+  currency        String?
+  fromAddress     String?
+  toAddress       String?
+  status          String
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  deal   Deal?   @relation(fields: [dealId], references: [id])
+  wallet Wallet? @relation(fields: [walletId], references: [id])
+
+  @@index([dealId])
+  @@index([walletId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model DealCounter {
+  id    String @id @default("counter")
+  value Int    @default(0)
+}
